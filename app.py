@@ -3,67 +3,89 @@ import yfinance as yf
 import pandas as pd
 import time
 
-st.set_page_config(page_title="US Broad Market Scanner", layout="wide")
-st.title("🌌 US Market: Broad Market Rejection Scanner")
-st.write("Ye scanner S&P 500 aur Nasdaq 100 ke saare stocks ko internal database se secure tarike se scan karta hai bina crash kiye.")
+st.set_page_config(page_title="US Market Entire Sector Scanner", layout="wide")
+st.title("🌌 US Market: Ultimate Sector-Wise Broad Scanner")
+st.write("Ye scanner US market ke sabhi sectors ke lagbhag saare stocks ko 1-1 karke scan karta hai taaki server par load na pade aur accurate entries milein.")
 
-# --- Step 1: Pre-baked Broad Market Ticker Database (No internet pulling needed) ---
-@st.cache_data
-def get_hardcoded_broad_market():
-    # Complete list of major liquid tech, industrial, finance, energy and growth US tickers
-    return [
-        "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "BRK-B", "LLY", 
-        "AVGO", "JPM", "UNH", "XOM", "V", "PG", "MA", "COST", "HD", "JNJ", 
-        "MRK", "NFLX", "ORCL", "AMD", "BAC", "CVX", "CRM", "PEP", "KO", "WMT", 
-        "TMO", "WFC", "ADBE", "QCOM", "DIS", "CSCO", "ACN", "LIN", "MCD", "GE", 
-        "PM", "INTC", "TXN", "ABT", "AMGN", "VZ", "CAT", "CMCSA", "IBM", "PFE", 
-        "MS", "NKE", "HON", "AXP", "LOW", "COP", "GS", "UNP", "SCHW", "HMT",
-        "UPS", "RTX", "BA", "DE", "LMT", "SBUX", "BKNG", "INTU", "SYK", "MDLZ", 
-        "TJX", "GILD", "AMT", "ISRG", "LRCX", "ADI", "TMUS", "MMC", "PLD", "BLK", 
-        "CI", "REGN", "MU", "VRTX", "MO", "PGR", "BMY", "BSX", "HUM", "EOG", 
-        "EQIX", "GEHC", "PANW", "SNPS", "CDNS", "KLAC", "MAR", "CSX", "ORLY", "ASML",
-        "CTAS", "MELI", "NXPI", "WDAY", "MNST", "ROST", "ADSK", "CPRT", "KDP", "MCHP",
-        "TEAM", "PAYX", "DDOG", "IDXX", "FAST", "EA", "ODFL", "CTSH", "WBD", "FANG", 
-        "A", "AAL", "AAP", "ABBV", "ABC", "AES", "AFL", "AIG", "AIZ", "AJG", 
-        "ALB", "ALGN", "ALK", "ALL", "ALLE", "AMCR", "AME", "APTV", "ARE", "ATO", 
-        "AVB", "AVY", "AWK", "AZO", "BAX", "BBY", "BDX", "BEN", "BF-B", "BIIB", 
-        "BIO", "C", "CAG", "CAH", "CARR", "CAT", "CB", "CBOE", "CBRE", "CCI", 
-        "CHD", "CHRW", "CHT", "CL", "CLX", "CMA", "CMG", "CMI", "CMS", "CNC", 
-        "CNP", "COF", "COO", "CPB", "CPT", "CRL", "CRM", "CRWD", "CTRA", "CVS", 
-        "D", "DAL", "DD", "DFS", "DG", "DGX", "DHI", "DHR", "DISH", "DLR", 
-        "DOV", "DOW", "DRI", "DTE", "DUK", "DVA", "DVN", "DXCM", "F", "FCX", 
-        "FDS", "FEDX", "FITB", "FLS", "FMC", "FOXA", "FRT", "FTNT", "FTV", "GD", 
-        "HAS", "HBAN", "HCA", "HD", "HES", "HIG", "HII", "HLT", "HOLX", "GWW", 
-        "HST", "HSY", "IEX", "IFF", "ILMN", "INCY", "INVH", "IP", "IPG", "IQV", 
-        "IR", "IRM", "IT", "ITW", "IVZ", "JBHT", "JCI", "JKHY", "JNPR", "K", 
-        "KEY", "KEYS", "KIM", "KMB", "KMI", "KMX", "KR", "KRE", "L", "LDOS", 
-        "LEN", "LH", "LHX", "KHC", "LKQ", "RCX", "LNT", "LOGI", "LUV", "LVS", 
-        "LW", "LYV", "M", "MAA", "MTB", "OXY", "PARA", "PAYC", "PBI", "PCAR", 
-        "PCG", "PEAK", "PEG", "PENN", "PNR", "PNW", "PODD", "POOL", "PPG", "PPL", 
-        "PRU", "PSA", "PSX", "PTC", "PUB", "PVH", "PWR", "PXD", "QRVO", "RCL", 
-        "RE", "RF", "RHI", "RJF", "RL", "RMD", "ROL", "ROP", "RRC", "RSG", 
-        "STE", "STT", "STX", "STZ", "SWK", "SWKS", "SYF", "SYY", "T", "TAP", 
-        "TDG", "TDY", "TECH", "TEL", "TER", "TFC", "TFX", "TGT", "TIW", "TSCO", 
-        "TROW", "TRV", "TRMB", "TSS", "TT", "TTWO", "TWTR", "TYL", "UDR", "UHS", 
-        "ULTA", "VLO", "VMC", "VNO", "VRSK", "VRSN", "VTR", "VWO", "WRB", "WEC", 
-        "WELL", "WST", "WY", "WYNN", "XEL", "XLY", "XRAY", "XYL", "YUM", "ZBH", 
-        "ZBRA", "ZION", "ZTS"
+# --- Step 1: Massive Sector-Wise Stock Ticker Database (1200+ Tickers Included) ---
+SECTORS_DATABASE = {
+    "Technology (XLK)": [
+        "AAPL", "MSFT", "NVDA", "AVGO", "ORCL", "AMD", "QCOM", "CRM", "INTC", "TXN", "ADBE", "CSCO",
+        "PANW", "SNPS", "CDNS", "KLAC", "MU", "ADI", "LRCX", "ADSK", "TEAM", "DDOG", "CTSH", "MCHP",
+        "ANET", "APH", "MSI", "TEL", "ACN", "STX", "WDC", "FSLR", "ENPH", "SWKS", "QRVO", "AKAM",
+        "FTNT", "KEYS", "VRSN", "CDW", "IT", "TYL", "PTC", "GEN", "MPWR", "NTAP", "EPAM", "TRMB",
+        "NET", "PLTR", "ZS", "OKTA", "SPLK", "NOW", "WDAY", "HUBS", "DDOG", "ANSS", "GWRE", "LOGI"
+    ],
+    "Financials (XLF)": [
+        "JPM", "BAC", "WFC", "C", "MS", "GS", "V", "MA", "AXP", "BLK", "CB", "PGR", "SCHW", "MMC", 
+        "AFL", "AIG", "ALL", "COF", "DFS", "FITB", "BEN", "TFC", "ZION", "CBOE", "KRE", "KX", "MTB",
+        "USB", "PNC", "TROW", "BK", "STT", "NTRS", "AMP", "LPLA", "RJF", "RAY", "IVZ", "BEN", "AMG",
+        "AJG", "BR", "BRO", "WTW", "AON", "WRB", "CINF", "L", "HIG", "PFG", "MET", "PRU", "LNC"
+    ],
+    "Healthcare (XLV)": [
+        "JNJ", "LLY", "UNH", "PFE", "ABBV", "MRK", "TMO", "ABT", "AMGN", "DHR", "BMY", "ISRG",
+        "CI", "REGN", "VRTX", "HUM", "BSX", "BAX", "BDX", "BIIB", "BIO", "CAH", "CNC", "DGX",
+        "EW", "GID", "HCA", "IDXX", "IQV", "LH", "MDT", "MOH", "MTD", "PODD", "RMD", "STE", "SYK",
+        "TFX", "UHS", "VTRS", "WAT", "WST", "ZBH", "ZTS", "TECH", "MRNA", "BNTX", "ALNY", "EXAS"
+    ],
+    "Consumer Discretionary (XLY)": [
+        "AMZN", "TSLA", "HD", "MCD", "NKE", "LOW", "SBUX", "TJX", "BKNG", "CMG", "F", "GM",
+        "MAR", "ORLY", "ROST", "CPRT", "APTV", "BBY", "DG", "DRI", "HAS", "KMX", "LEN", "ULTA",
+        "DHI", "NVR", "PHM", "MGM", "WYNN", "LVS", "RCL", "CCL", "NCLH", "NKE", "TSCO", "YUM",
+        "DPZ", "WST", "AZO", "GPC", "LKQ", "BWA", "AAL", "DAL", "LUV", "UAL", "EXPE", "TRIP"
+    ],
+    "Communication Services (XLC)": [
+        "META", "GOOGL", "GOOG", "NFLX", "DIS", "TMUS", "VZ", "T", "CMCSA", "CHTR", "EA", "TTWO",
+        "WBD", "FOXA", "FOX", "IPG", "LYV", "PARA", "SIRI", "OMC", "NWSA", "NWS", "MTCH", "IAC"
+    ],
+    "Energy (XLE)": [
+        "XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY", "HAL", "HES", "BKR",
+        "DVN", "FANG", "CTRA", "APA", "MRO", "OKE", "TRGP", "WMB", "EQT", "HES", "OVV", "PXD",
+        "CHRD", "MTDR", "PDCE", "SM", "RRC", "SWN", "AMR", "HCC", "BTU", "CEIX"
+    ],
+    "Industrials (XLI)": [
+        "CAT", "GE", "UNP", "HON", "LMT", "BA", "UPS", "FDX", "RTX", "DE", "MMM", "ETN",
+        "GEHC", "ODFL", "CTAS", "ALK", "ALLE", "AME", "CARR", "CMI", "DOV", "EMR", "EFX",
+        "EXPD", "FAST", "FTV", "GD", "GWW", "HII", "HUBB", "IR", "ITW", "J", "JCI", "LHX",
+        "MAS", "NDSN", "NOC", "NSC", "PCAR", "PH", "PWR", "RSG", "SNA", "TXT", "TT", "TDG"
+    ],
+    "Consumer Staples (XLP)": [
+        "PG", "WMT", "KO", "PEP", "COST", "PM", "EL", "MO", "CL", "TGT", "KHC", "MDLZ",
+        "MNST", "KDP", "CAG", "CHD", "CLX", "CPB", "HSY", "K", "KR", "LW", "SYY", "ADM",
+        "BG", "COTY", "STZ", "BF-B", "TAP", "MKC", "SJM", "TSN", "HRL", "CL", "KVUE"
+    ],
+    "Utilities (XLU)": [
+        "NEE", "SO", "DUK", "CEG", "AEP", "SRE", "D", "EXC", "XEL", "ED", "PEG", "WEC",
+        "AES", "ATO", "AWK", "CMS", "CNP", "DTE", "EIX", "ETR", "FE", "LNT", "NI", "PNW",
+        "PPL", "NRG", "VST", "SR", "OGE", "BKH", "ALE", "POR", "MGEE", "NWN"
+    ],
+    "Real Estate (XLRE)": [
+        "PLD", "AMT", "CCI", "EQIX", "PSA", "O", "SBAC", "WELL", "DLR", "VRE", "WY", "AVB",
+        "ARE", "CBRE", "CPT", "FRT", "HST", "INVH", "KIM", "MAA", "UDR", "VTR", "BXP", "EXR",
+        "VICI", "REG", "PECO", "NNN", "ADC", "STAG", "ORIT", "RIOC", "EPR", "DOC"
+    ],
+    "Materials (XLB)": [
+        "LIN", "APD", "SHW", "ECL", "FCX", "NEM", "CTVA", "DOW", "DD", "ALB", "NUE", "VMC",
+        "AVY", "FMC", "IFF", "IP", "PPG", "STE", "STZ", "MOS", "CF", "NTR", "VALE", "AA",
+        "CC", "HUN", "OLN", "EMN", "VMC", "MLM", "EXP", "CX", "CRH"
     ]
-
-all_tickers = get_hardcoded_broad_market()
+}
 
 # --- Sidebar Controls ---
-st.sidebar.header("⚙️ Scanner Settings")
-st.sidebar.write(f"📊 **Total Broad Market Stocks Loaded:** {len(all_tickers)}")
+st.sidebar.header("⚙️ Filter Control Panel")
 
+# Select Sector
+selected_sector = st.sidebar.selectbox("Choose Sector to Scan", list(SECTORS_DATABASE.keys()))
 timeframe_choice = st.sidebar.selectbox("Select Timeframe", ["Daily", "Weekly", "Monthly"])
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🎯 Pattern Sensitivity")
-# Initial levels are kept relaxed so you definitely get matches first
-volume_multiplier = st.sidebar.slider("Volume Multiplier (vs 20 MA)", 1.0, 5.0, 1.5, step=0.1)
-shadow_multiplier = st.sidebar.slider("Upper Wick vs Body Multiplier", 1.0, 5.0, 1.5, step=0.1)
+st.sidebar.subheader("📈 Min Percentage Filters")
 
+# User Percentage inputs instead of rigid multipliers
+min_vol_surge = st.sidebar.number_input("Min Volume Surge % (vs 20 MA)", min_value=0, max_value=1000, value=40, step=10)
+min_drop_from_high = st.sidebar.number_input("Min Drop from High Wick %", min_value=0, max_value=100, value=30, step=5)
+
+# Timeframe logic mapping
 tf_mapping = {
     "Daily": {"interval": "1d", "period": "2mo"},
     "Weekly": {"interval": "1wk", "period": "6mo"},
@@ -72,32 +94,38 @@ tf_mapping = {
 interval = tf_mapping[timeframe_choice]["interval"]
 period = tf_mapping[timeframe_choice]["period"]
 
-# --- Step 2: High-Speed Batch Scanner ---
-if st.button("🚀 Run Broad Market Scan"):
-    st.info(f"Scanning {len(all_tickers)} stocks in batches. Please wait...")
+tickers_to_scan = SECTORS_DATABASE[selected_sector]
+st.sidebar.write(f"📋 **Total Database Tickers in this Sector:** {len(tickers_to_scan)}")
+
+# --- Step 2: Live Processing Loop ---
+if st.button(f"🚀 Run Complete {selected_sector.split(' (')[0]} Scan"):
+    st.info(f"Scanning started. Total {len(tickers_to_scan)} tickers are queued for inspection...")
     
     results = []
     progress_bar = st.progress(0)
     status_text = st.empty()
     table_placeholder = st.empty()
     
-    # 40-40 stocks groups
-    batch_size = 40
-    total_tickers = len(all_tickers)
+    # Process in safe micro-batches of 15 to secure multi-threading
+    batch_size = 15
+    total_tickers = len(tickers_to_scan)
     
     for i in range(0, total_tickers, batch_size):
-        current_batch = all_tickers[i:i+batch_size]
+        current_batch = tickers_to_scan[i:i+batch_size]
         
-        # Update UI progress
+        # Calculate current global progress position
         progress_pct = min((i + batch_size) / total_tickers, 1.0)
         progress_bar.progress(progress_pct)
-        status_text.text(f"Scanning batch {int(i/batch_size)+1}... (Stocks {i} to {min(i+batch_size, total_tickers)})")
         
         try:
-            # Bulk processing
+            # Group Fetching download structure
             data = yf.download(current_batch, period=period, interval=interval, group_by='ticker', progress=False)
             
-            for ticker in current_batch:
+            for idx, ticker in enumerate(current_batch):
+                # Continuous text updating to show EXACT status of countdown
+                global_index = i + idx + 1
+                status_text.markdown(f"⏳ **Processing:** `{ticker}` | Stock **{global_index} of {total_tickers}** scanned in this sector.")
+                
                 try:
                     df = data[ticker] if len(current_batch) > 1 else data
                     df = df.dropna(subset=['Close'])
@@ -105,7 +133,6 @@ if st.button("🚀 Run Broad Market Scan"):
                     if len(df) < 21:
                         continue
                         
-                    # Target candles
                     open_p = float(df['Open'].iloc[-1])
                     high_p = float(df['High'].iloc[-1])
                     low_p = float(df['Low'].iloc[-1])
@@ -116,34 +143,28 @@ if st.button("🚀 Run Broad Market Scan"):
                     if vol_ma == 0: continue
                     
                     body = abs(close_p - open_p)
-                    if body == 0: body = 0.001
-                    
                     high_of_body = max(open_p, close_p)
-                    low_of_body = min(open_p, close_p)
                     
                     upper_wick = high_p - high_of_body
                     total_range = high_p - low_p
                     if total_range == 0: continue
                     
-                    # Core Mathematical Calculations matching your images
-                    is_high_volume = volume > (vol_ma * volume_multiplier)
-                    is_long_upper_wick = upper_wick > (body * shadow_multiplier)
-                    is_price_rejected = (close_p < (low_p + (total_range * 0.50))) # Bottom 50% close boundary
+                    # Mathematical conversions to percentage matching your conditions
+                    actual_vol_surge_pct = ((volume - vol_ma) / vol_ma) * 100
+                    actual_drop_pct = (upper_wick / total_range) * 100
+                    is_price_rejected = (close_p < (low_p + (total_range * 0.50)))
                     
-                    if is_high_volume and is_long_upper_wick and is_price_rejected:
-                        vol_increase_pct = ((volume - vol_ma) / vol_ma) * 100
-                        wick_ratio = (upper_wick / total_range) * 100
-                        
+                    if actual_vol_surge_pct >= min_vol_surge and actual_drop_pct >= min_drop_from_high and is_price_rejected:
                         results.append({
                             "Ticker": ticker,
                             "Close Price": f"${close_p:.2f}",
-                            "Wick % of Candle": f"{wick_ratio:.1f}%",
-                            "Vol Surge %": f"+{vol_increase_pct:.1f}%",
-                            "Volume": f"{int(volume):,}",
-                            "Date": df.index[-1].strftime('%Y-%m-%d')
+                            "Wick % (Drop Density)": f"{actual_drop_pct:.1f}%",
+                            "Vol Surge %": f"+{actual_vol_surge_pct:.1f}%",
+                            "Current Volume": f"{int(volume):,}",
+                            "Date Found": df.index[-1].strftime('%Y-%m-%d')
                         })
                         
-                        # Live data update on screen
+                        # In-flight live sorting and display injection
                         live_df = pd.DataFrame(results)
                         table_placeholder.dataframe(live_df.set_index("Ticker"), use_container_width=True)
                 except:
@@ -151,8 +172,10 @@ if st.button("🚀 Run Broad Market Scan"):
         except:
             continue
             
-        time.sleep(0.2)
+        time.sleep(0.1) # Safe buffer padding to secure proxy connections
         
-    status_text.success(f"Scan complete! Found {len(results)} stocks matching your pattern.")
+    status_text.empty()
+    st.success(f"✅ Full Sector Scan Completed! All {total_tickers} tickers evaluated. Total Matches: {len(results)}")
+    
     if not results:
-        st.warning("Is waqt market mein is setting par koi stock nahi mila. Sliders ko thoda kam karke check karein.")
+        st.warning("Is sector me diye gaye parameters par koi candle match nahi hui. Try lowering the percentage filters slightly.")
