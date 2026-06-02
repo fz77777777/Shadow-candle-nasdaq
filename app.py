@@ -3,158 +3,136 @@ import yfinance as yf
 import pandas as pd
 import time
 
-# Page configuration
-st.set_page_config(page_title="Nasdaq Entire Market Scanner", layout="wide")
-st.title("🌌 Nasdaq Entire Market (4000+ Stocks) Scanner")
-st.write("Ye scanner pure NASDAQ market ke hazaron stocks ko batches mein scan karta hai bina crash kiye ya block hue.")
+st.set_page_config(page_title="US Full Market Scanner", layout="wide")
+st.title("🌌 US Market: Broad Market Rejection Scanner")
+st.write("Ye scanner S&P 500 aur Nasdaq 100 ke saare stocks ko ek sath scan karta hai bina server crash kiye.")
 
-# --- Step 1: Fetch ENTIRE Nasdaq Ticker List Safely ---
-@st.cache_data(ttl=86400) # Cache list for 24 hours
-def get_all_nasdaq_tickers():
+# --- Step 1: Automatically Fetch S&P 500 & Nasdaq 100 Lists ---
+@st.cache_data(ttl=86400)
+def get_broad_market_tickers():
     try:
-        # FTP server se live nasdaq listed stocks ki fresh text file fetch karna
-        url = "https://raw.githubusercontent.com/rreichel3/US-Stock-Symbols/main/nasdaq/nasdaq_tickers.txt"
-        tickers_df = pd.read_csv(url, header=None, names=['Ticker'])
-        ticker_list = tickers_df['Ticker'].dropna().unique().tolist()
-        # Clean clean symbols (remove warrants, test tickers, etc.)
-        ticker_list = [str(t).strip().upper() for t in ticker_list if len(str(t).strip()) <= 4]
-        return sorted(ticker_list)
+        # S&P 500
+        sp500_url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        sp500_table = pd.read_html(sp500_url)[0]
+        sp500_list = sp500_table['Symbol'].tolist()
+        
+        # Nasdaq 100
+        nasdaq_url = "https://en.wikipedia.org/wiki/Nasdaq-100"
+        nasdaq_table = pd.read_html(nasdaq_url)[4]
+        nasdaq_list = nasdaq_table['Ticker'].tolist()
+        
+        # Merge & Clean
+        full_list = list(set(sp500_list + nasdaq_list))
+        full_list = [t.replace('.', '-') for t in full_list] # For yfinance compatibility
+        return sorted(full_list)
     except Exception:
-        # Fallback list agar internet issue ho
-        return ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "NFLX", "QCOM", "INTC", "CSCO"]
+        # Fallback list if internet fails
+        return ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "NFLX", "QCOM"]
 
-all_nasdaq_stocks = get_all_nasdaq_tickers()
+all_tickers = get_broad_market_tickers()
 
 # --- Sidebar Controls ---
-st.sidebar.header("1. Scanner Controls")
-st.sidebar.write(f"📊 **Total NASDAQ Tickers Found:** {len(all_nasdaq_stocks)}")
+st.sidebar.header("⚙️ Scanner Settings")
+st.sidebar.write(f"📊 **Total Broad Market Stocks Loaded:** {len(all_tickers)}")
 
-# Timeframe selection
-timeframe_choice = st.sidebar.selectbox(
-    "Select Timeframe",
-    ["Daily", "Weekly", "Monthly"]
-)
-
-# Batch size controls to prevent crashes
-st.sidebar.markdown("---")
-st.sidebar.subheader("⚙️ Stability Settings (Anti-Crash)")
-batch_size = st.sidebar.slider("Batch Size (Per Request)", 20, 100, 50, help="Ek baar me kitne stocks ka data download hoga.")
-pause_time = st.sidebar.slider("Rest Time between Batches (Seconds)", 1.0, 5.0, 2.0, help="Har batch ke baad script kitna break legi.")
+timeframe_choice = st.sidebar.selectbox("Select Timeframe", ["Daily", "Weekly", "Monthly"])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Pattern Sensitivity")
-volume_multiplier = st.sidebar.slider("Volume Multiplier (vs 20 MA)", 1.5, 5.0, 2.5, step=0.1)
-shadow_multiplier = st.sidebar.slider("Upper Wick vs Body Multiplier", 2.0, 6.0, 2.5, step=0.1)
+volume_multiplier = st.sidebar.slider("Volume Multiplier (vs 20 MA)", 1.5, 5.0, 2.3, step=0.1)
+shadow_multiplier = st.sidebar.slider("Upper Wick vs Body Multiplier", 1.5, 5.0, 2.2, step=0.1)
 
-# Timeframe configurations
 tf_mapping = {
-    "Daily": {"interval": "1d", "period": "3mo"},
-    "Weekly": {"interval": "1wk", "period": "1y"},
-    "Monthly": {"interval": "1mo", "period": "3y"}
+    "Daily": {"interval": "1d", "period": "2mo"},
+    "Weekly": {"interval": "1wk", "period": "6mo"},
+    "Monthly": {"interval": "1mo", "period": "2y"}
 }
 interval = tf_mapping[timeframe_choice]["interval"]
 period = tf_mapping[timeframe_choice]["period"]
 
-# --- Step 2: Core Analysis Logic ---
-def analyze_data(df, ticker, vol_mult, shadow_mult):
-    try:
-        if df.empty or len(df) < 21:
-            return None
-        
-        # Latest Candle details
-        open_p = float(df['Open'].iloc[-1])
-        high_p = float(df['High'].iloc[-1])
-        low_p = float(df['Low'].iloc[-1])
-        close_p = float(df['Close'].iloc[-1])
-        volume = float(df['Volume'].iloc[-1])
-        
-        # 20 Moving Average of Volume
-        vol_ma = df['Volume'].iloc[-21:-1].mean()
-        if vol_ma == 0: return None
-        
-        body = abs(close_p - open_p)
-        if body == 0: body = 0.001
-            
-        high_of_body = max(open_p, close_p)
-        low_of_body = min(open_p, close_p)
-        
-        upper_wick = high_p - high_of_body
-        total_range = high_p - low_p
-        if total_range == 0: return None
-        
-        # Pattern conditions logic
-        is_high_volume = volume > (vol_ma * vol_mult)
-        is_long_upper_wick = upper_wick > (body * shadow_mult)
-        is_price_rejected = (close_p < (low_p + (total_range * 0.4))) # Close inside lower 40%
-        
-        if is_high_volume and is_long_upper_wick and is_price_rejected:
-            vol_increase_pct = ((volume - vol_ma) / vol_ma) * 100
-            wick_ratio = (upper_wick / total_range) * 100
-            
-            return {
-                "Ticker": ticker,
-                "Close Price": f"${close_p:.2f}",
-                "Wick % of Candle": f"{wick_ratio:.1f}%",
-                "Vol Surge %": f"+{vol_increase_pct:.1f}%",
-                "Current Volume": f"{int(volume):,}",
-                "Date Found": df.index[-1].strftime('%Y-%m-%d')
-            }
-    except:
-        return None
-    return None
-
-# --- Step 3: Streamlit UI Trigger ---
-if st.button("🚀 Start Nasdaq Entire Market Scan"):
-    st.warning(f"⚠️ Heavy Scan Initialized! Hazaron stocks ko {batch_size}-{batch_size} ke groups me check kiya ja raha hai taaki script crash na ho. Isme thoda time lagega...")
+# --- Step 2: High-Speed Batch Scanner ---
+if st.button("🚀 Run Broad Market Scan"):
+    st.info(f"Scanning {len(all_tickers)} stocks in batches. Please wait...")
     
     results = []
-    
-    # Progress UI Components
     progress_bar = st.progress(0)
-    status_box = st.empty()
+    status_text = st.empty()
     table_placeholder = st.empty()
     
-    # Chunks or Batches banana
-    total_stocks = len(all_nasdaq_stocks)
+    # 40-40 stocks ke batches mein download karenge taaki yfinance crash na ho
+    batch_size = 40
+    total_tickers = len(all_tickers)
     
-    for i in range(0, total_stocks, batch_size):
-        batch = all_nasdaq_stocks[i:i + batch_size]
+    for i in range(0, total_tickers, batch_size):
+        current_batch = all_tickers[i:i+batch_size]
         
-        # Update Status
-        current_progress = min((i + batch_size) / total_stocks, 1.0)
-        progress_bar.progress(current_progress)
-        status_box.info(f"Processing Batch {int(i/batch_size)+1}: Scanning stocks {i} to {min(i+batch_size, total_stocks)} of {total_stocks}...")
+        # Update progress
+        progress_pct = min((i + batch_size) / total_tickers, 1.0)
+        progress_bar.progress(progress_pct)
+        status_text.text(f"Scanning batch {int(i/batch_size)+1}... (Stocks {i} to {min(i+batch_size, total_tickers)})")
         
-        # Batch download directly from yfinance (Group Download is much faster)
         try:
-            # group_by='ticker' se saare stocks ek sath fast download hote hain
-            data = yf.download(batch, period=period, interval=interval, group_by='ticker', progress=False)
+            # Bulk download (Sabse fast tarika)
+            data = yf.download(current_batch, period=period, interval=interval, group_by='ticker', progress=False)
             
-            for ticker in batch:
-                # Check matrix type single stock or multi-index
+            for ticker in current_batch:
                 try:
-                    if len(batch) > 1:
-                        ticker_df = data[ticker]
-                    else:
-                        ticker_df = data
+                    # Single ticker extraction from multi-index dataframe
+                    df = data[ticker] if len(current_batch) > 1 else data
+                    df = df.dropna(subset=['Close']) # Drop empty rows
+                    
+                    if len(df) < 21:
+                        continue
                         
-                    res = analyze_data(ticker_df, ticker, volume_multiplier, shadow_multiplier)
-                    if res:
-                        results.append(res)
-                        # Live dashboard update: jaise hi koi mile turant screen par show karo
+                    # Latest candle math
+                    open_p = float(df['Open'].iloc[-1])
+                    high_p = float(df['High'].iloc[-1])
+                    low_p = float(df['Low'].iloc[-1])
+                    close_p = float(df['Close'].iloc[-1])
+                    volume = float(df['Volume'].iloc[-1])
+                    
+                    # 20 Volume MA
+                    vol_ma = df['Volume'].iloc[-21:-1].mean()
+                    if vol_ma == 0: continue
+                    
+                    body = abs(close_p - open_p)
+                    if body == 0: body = 0.001
+                    
+                    high_of_body = max(open_p, close_p)
+                    low_of_body = min(open_p, close_p)
+                    
+                    upper_wick = high_p - high_of_body
+                    total_range = high_p - low_p
+                    if total_range == 0: continue
+                    
+                    # Strict filters matching your images
+                    is_high_volume = volume > (vol_ma * volume_multiplier)
+                    is_long_upper_wick = upper_wick > (body * shadow_multiplier)
+                    is_price_rejected = (close_p < (low_p + (total_range * 0.45))) # Closed in bottom 45%
+                    
+                    if is_high_volume and is_long_upper_wick and is_price_rejected:
+                        vol_increase_pct = ((volume - vol_ma) / vol_ma) * 100
+                        wick_ratio = (upper_wick / total_range) * 100
+                        
+                        results.append({
+                            "Ticker": ticker,
+                            "Close Price": f"${close_p:.2f}",
+                            "Wick % of Candle": f"{wick_ratio:.1f}%",
+                            "Vol Surge %": f"+{vol_increase_pct:.1f}%",
+                            "Volume": f"{int(volume):,}",
+                            "Date": df.index[-1].strftime('%Y-%m-%d')
+                        })
+                        
+                        # Live Update UI
                         live_df = pd.DataFrame(results)
                         table_placeholder.dataframe(live_df.set_index("Ticker"), use_container_width=True)
                 except:
-                    continue # Koi ek stock error de toh baaki na rukein
-                    
-        except Exception as batch_error:
-            # Agar poora batch fail ho jaye, toh script crash nahi hogi, agle batch par chali jayegi
+                    continue
+        except:
             continue
             
-        # ☕ Anti-crash cooling break (Sleep interval)
-        time.sleep(pause_time)
+        time.sleep(0.5) # Chhota sa anti-block pause
         
-    status_box.success(f"🎯 Scan Complete! Pure Nasdaq me total {len(results)} stocks mile hain.")
-    
+    status_text.success(f"Scan complete! Found {len(results)} stocks matching your pattern.")
     if not results:
-        st.error("Is waqt pure Nasdaq market me is specific criteria ka koi stock nahi mila. Try adjusting the sliders.")
+        st.warning("Is waqt market mein is strict setting par koi stock nahi mila. Sliders ko thoda kam karke check karein.")
